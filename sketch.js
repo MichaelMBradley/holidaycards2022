@@ -1,100 +1,94 @@
-const MAX_TREES = 500;
-const WOOD_COLOUR = "#b87541";
-const NEEDLE_COLOUR = "#2aa21a";
+/// Some code from https://github.com/ren-yuan/c2.js/blob/main/examples%20for%20p5.js/Voronoi.js
+
 // "default" key from data/keys.json
 const DEFAULT_KEY = "DQLRtWT-g5uiUsrqNMbKNIWzpJBB7862mfNgt3L-WqE";
-
-let numTrees = 0;
-let requiredHeight = 0;
-
+// Whether to adjust canvas size and matrix
+let resetSize = true;
+// Message to display
+let message;
+let agents = Array(5);
 function setup() {
-	createCanvas(windowWidth, windowHeight * 2);
-	requiredHeight = windowHeight * 0.8;
-	frameRate(30);
-	noSmooth();
-	noStroke();
+	createCanvas(windowWidth, windowHeight);
 	angleMode(RADIANS);
-	getMessage(getURLParams().key).then(message => {
-		console.log(message)
+	noLoop();
+	for (let i = 0; i < agents.length; ++i) {
+		agents[i] = new Array(20);
+	}
+	frameRate(30);
+	for (const layer of agents) {
+		for (let i = 0; i < layer.length; ++i) {
+			layer[i] = new Agent();
+		}
+	}
+	getMessage(getURLParams()["key"]).then(decrypted => {
+		message = decrypted;
+		console.log(message);
+		loop();
 	});
-	createForest();
 }
 
 function windowResized() {
-	resizeCanvas(windowWidth, windowHeight);
-	createForest();
-}
-
-function createForest() {
-	randomSeed(0);
-	background(255);
-	numTrees = 0;
-	loop();
+	resetSize = true;
 }
 
 function draw() {
-	//createForest();
-	//noLoop();
-	const radians = random(TWO_PI);
-	// Radial form for a squircle
-	const minRadius = 1 / pow(1 - (1 / 2) * pow(sin(2 * radians), 2), 1 / 4);
-	const radMod = abs(randomGaussian(0, 0.2));
-	const initTreeX = (minRadius * 0.7 + radMod) * sin(radians);
-	const initTreeY = (minRadius * 0.9 + radMod) * cos(radians);
-	createTree((initTreeX + 1) / 2, (initTreeY + 1) / 2);
-	if (++numTrees >= MAX_TREES) {
-		noLoop();
+	if (resetSize) {
+		resizeCanvas(windowWidth, windowHeight);
+		resetMatrix();
+		applyMatrix(1, 0, 0, 1, windowWidth / 2, windowHeight / 2);
 	}
-}
 
-// Creates a tree with a starting point at:
-// `(x * windowWidth, y * windowHeight)`
-function createTree(x, y) {
-	const trunk = {
-		x: x * windowWidth,
-		y: y * windowHeight,
-		h: constrain(randomGaussian(50, 20), 10, 90),
-	};
+	background("#006666")
+	circle(0, 0, 10);
 
-	fill(WOOD_COLOUR);
-	triangle(trunk.x - trunk.h / 10, trunk.y + trunk.h, trunk.x + trunk.h / 10, trunk.y + trunk.h, trunk.x, trunk.y);
-
-	const numBranches = max(1, int(randomGaussian(40, 7)));
-	for (let i = 0; i < numBranches; ++i) {
-		createBranch(trunk);
-	}
-}
-
-function createBranch(trunk) {
-	const d = random();
-	const branch = {
-		x: trunk.x,
-		y: trunk.y + d * trunk.h,
-		r: -random(PI),
-		l: (d + random()) / 4 * trunk.h,
-	};
-	strokeWeight(d * 2);
-	stroke(WOOD_COLOUR);
-	line(branch.x, branch.y, branch.x + cos(branch.r) * branch.l, branch.y + sin(branch.r) * branch.l);
+	let alpha = 1;
+	const max = 2 * sqrt(width * width + height * height) / 2;
+	const rect = new c2.Rect(-width / 2, -height / 2, width, height);
 	noStroke();
-	const numNeedles = max(1, int(randomGaussian(60, 10)));
-	for (let i = 0; i < numNeedles; ++i) {
-		createNeedle(branch);
+
+	for (const layer of agents) {
+		const voronoi = new c2.Voronoi();//Delaunay();//
+		voronoi.compute(layer);
+		alpha *= 0.1;
+		for (let region of voronoi.regions) {//triangles) {//
+			region = rect.clip(region);
+			const c = region.centroid();
+			fill(255 * pow(sqrt(c.x * c.x + c.y * c.y) / max, 3), 255 * (0.2 - alpha));
+			//triangle(region.p1.x, region.p1.y, region.p2.x, region.p2.y, region.p3.x, region.p3.y);
+			beginShape();
+			for (const vert of region.vertices) vertex(vert.x, vert.y);
+			endShape(CLOSE);
+		}
+		for (const agent of layer) {
+			//circle(agent.x, agent.y, 10);
+			agent.update()
+		}
 	}
+
+	stroke("#0000ff77");
+	fill("#0000cc77")
+	polarHexagons(6, 10, 100);
 }
 
-function createNeedle(branch) {
-	const d = random();
-	const needle = {
-		x: branch.x + d * cos(branch.r) * branch.l,
-		y: branch.y + d * sin(branch.r) * branch.l,
-		r: random(TWO_PI),
-		l: (1 + (d - 1) * branch.l) / 4,
-	};
-	strokeWeight(1);
-	stroke(NEEDLE_COLOUR);
-	line(needle.x, needle.y, needle.x + cos(needle.r) * needle.l, needle.y + sin(needle.r) * needle.l);
-	noStroke();
+class Agent extends c2.Point {
+    constructor() {
+        super(
+			random(width) - width / 2,
+			random(height) - height / 2
+		);
+
+        this.vx = random(-1, 1);
+        this.vy = random(-1, 1);
+    }
+
+    update() {
+        if (-width / 2 >= this.x || this.x > width / 2) this.vx *= -1;
+        if (-height / 2 >= this.y || this.y > height / 2) this.vy *= -1;
+		this.x += this.vx;
+		this.y += this.vy;
+		//this.x = (this.x + this.vx + width / 2) % width - width / 2;
+        //this.y = (this.y + this.vy + height / 2) % height - height / 2;
+    }
 }
 
 // Converts a hex string into an ArrayBuffer, for example:
