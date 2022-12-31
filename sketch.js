@@ -118,8 +118,54 @@ function draw() {
 	const baseRadius = random(1 / 6, 1 / 2) * MAX_RAD;
 	const baseDeviation = random(baseRadius * 2 / 3);
 
-	polarHexagons(6, baseRadius, baseDeviation);
-	polarHexagons(6, baseRadius / 5, baseRadius + baseDeviation);
+	polarHexagons(baseRadius, baseDeviation);
+	polarHexagons(baseRadius / 5, baseRadius + baseDeviation);
+	mirrorHexShape([[0, 100], [0, 150], [50, 150], [50, 100]]);
+}
+
+// cos(pi/6), just so `HEXAGON_POINTS` doesn't have to recalculate it
+const cp6 = Math.sqrt(3) / 2;
+// Points of a hexagon, normalised
+const HEXAGON_POINTS = [
+	[1/2, cp6],
+	[1, 0],
+	[1/2, -cp6],
+	[-1/2, -cp6],
+	[-1, 0],
+	[-1/2, cp6]
+];
+// Creates 6 hexagons about the origin
+function polarHexagons(radius, distance) {
+	hexShape(
+		HEXAGON_POINTS.map(
+			point => [
+				point[0] * radius,
+				point[1] * radius + distance
+			]
+		)
+	);
+}
+
+// Given a series of points `[[x1, y1], [x2, y2], ...]`
+// Mirror them over the x-axis and call `hexShape` on both
+function mirrorHexShape(points) {
+	hexShape(points);
+	hexShape(points.map(point => [-point[0], point[1]]));
+}
+
+// Given a series of points `[[x1, y1], [x2, y2], ...]`
+// Draw the shape they define 6 times, separated by pi/3 rad
+function hexShape(points) {
+	// Normally I'd do [0, ..., 2pi), but floats make that impossible and the first shape is drawn twice (at 0 and 2pi)
+	// This still gets across what I want, and only draws each shape once
+	for (let theta = PI / 3; theta <= TWO_PI; theta += PI / 3) {
+		beginShape();
+		for (const [x, y] of points) {
+			// Transform point using standard 2d rotation matrix
+			vertex(x * cos(theta) - y * sin(theta), x * sin(theta) + y * cos(theta));
+		}
+		endShape(CLOSE);
+	}
 }
 
 class Agent extends c2.Point {
