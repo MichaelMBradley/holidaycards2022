@@ -2,11 +2,13 @@
 
 // "default" key from data/keys.json
 const DEFAULT_KEY = "DQLRtWT-g5uiUsrqNMbKNIWzpJBB7862mfNgt3L-WqE";
-// Whether to adjust canvas size and matrix
-let resetSize = true;
+// 2d Array of moving points used to generate the Voronoi background
+const agents = Array(5);
 // Message to display
 let message;
-let agents = Array(5);
+// Seed generated from message;
+let seed = 0;
+
 function setup() {
 	createCanvas(windowWidth, windowHeight);
 	angleMode(RADIANS);
@@ -14,32 +16,43 @@ function setup() {
 	for (let i = 0; i < agents.length; ++i) {
 		agents[i] = new Array(20);
 	}
+	createAgents();
 	frameRate(30);
+	const key = getURLParams()["key"];
+	getMessage(key).then(decrypted => {
+		message = decrypted;
+		console.log(message);
+		// Hash key, use it to generate seed
+		crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)).then(hashed => {
+			let dv = new DataView(hashed);
+			for (let i = 0; i < dv.byteLength; ++i) {
+				randomSeed(dv.getUint8(i));
+				seed ^= random(Number.MAX_SAFE_INTEGER);
+			}
+			console.log(seed);
+			loop();
+		})
+	});
+}
+
+function createAgents() {
 	for (const layer of agents) {
 		for (let i = 0; i < layer.length; ++i) {
 			layer[i] = new Agent();
 		}
 	}
-	getMessage(getURLParams()["key"]).then(decrypted => {
-		message = decrypted;
-		console.log(message);
-		loop();
-	});
 }
 
 function windowResized() {
-	resetSize = true;
+	resizeCanvas(windowWidth, windowHeight);
+	createAgents();
 }
 
 function draw() {
-	if (resetSize) {
-		resizeCanvas(windowWidth, windowHeight);
-		resetMatrix();
-		applyMatrix(1, 0, 0, 1, windowWidth / 2, windowHeight / 2);
-	}
+	resetMatrix();
+	applyMatrix(1, 0, 0, 1, windowWidth / 2, windowHeight / 2);
 
 	background("#006666")
-	circle(0, 0, 10);
 
 	let alpha = 1;
 	const max = 2 * sqrt(width * width + height * height) / 2;
@@ -47,14 +60,16 @@ function draw() {
 	noStroke();
 
 	for (const layer of agents) {
-		const voronoi = new c2.Voronoi();//Delaunay();//
+		const voronoi = new c2.Voronoi();
 		voronoi.compute(layer);
 		alpha *= 0.1;
-		for (let region of voronoi.regions) {//triangles) {//
+		for (let region of voronoi.regions) {
 			region = rect.clip(region);
+			// If the window is resized, some null issues can crop up on the first frame
+			// This should only be encountered occasionally
+			if (region === null) return;
 			const c = region.centroid();
 			fill(255 * pow(sqrt(c.x * c.x + c.y * c.y) / max, 3), 255 * (0.2 - alpha));
-			//triangle(region.p1.x, region.p1.y, region.p2.x, region.p2.y, region.p3.x, region.p3.y);
 			beginShape();
 			for (const vert of region.vertices) vertex(vert.x, vert.y);
 			endShape(CLOSE);
@@ -66,15 +81,22 @@ function draw() {
 	}
 
 	stroke("#0000ff77");
-	fill("#0000cc77")
+	fill("#0000cc77");
+	const MAX_RAD = 0.75 * min(width, height) / 2;
+
+	randomSeed(seed);
+	const baseRadius = random(MAX_RAD / 2);
+	const baseDeviation = random(baseRadius / 2);
+
+	polarHexagons(6, baseRadius, baseDeviation);
 	polarHexagons(6, 10, 100);
 }
 
 class Agent extends c2.Point {
     constructor() {
         super(
-			random(width) - width / 2,
-			random(height) - height / 2
+			random(windowWidth) - windowWidth / 2,
+			random(windowHeight) - windowHeight / 2
 		);
 
         this.vx = random(-1, 1);
@@ -86,8 +108,6 @@ class Agent extends c2.Point {
         if (-height / 2 >= this.y || this.y > height / 2) this.vy *= -1;
 		this.x += this.vx;
 		this.y += this.vy;
-		//this.x = (this.x + this.vx + width / 2) % width - width / 2;
-        //this.y = (this.y + this.vy + height / 2) % height - height / 2;
     }
 }
 
