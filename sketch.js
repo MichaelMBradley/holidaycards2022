@@ -22,6 +22,7 @@ function setup() {
 	getMessage(key).then(decrypted => {
 		message = decrypted;
 		console.log(message);
+		parseMessage();
 		// Hash key, use it to generate seed
 		crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)).then(hashed => {
 			let dv = new DataView(hashed);
@@ -33,6 +34,35 @@ function setup() {
 			loop();
 		})
 	});
+}
+
+// Parse the markdown-like message
+function parseMessage() {
+	// Letting my linter know this is a string
+	let messageHTML = `${message}`;
+
+	// Add salutation
+	messageHTML = messageHTML.replace("<hh>", "\n\nHappy Holidays,");
+	messageHTML = messageHTML.replace("<hny>", "\n\nHappy New Year,");
+
+	// Add signatures
+	messageHTML = messageHTML.replace("<sig>", "\n*Michael*");
+	messageHTML = messageHTML.replace("<fsig>", "\n*Michael Bradley*");
+
+	// Add header (saves time writing cards)
+	messageHTML = messageHTML.replace(/^([^\n]*)\n/, "<h1>$1</h1>\n");
+
+	// Add line breaks (non-standard, one newline creates a break)
+	messageHTML = messageHTML.replace(/\n/g, "<br>");
+
+	// Add bold and italics
+	messageHTML = messageHTML.replace(/\*\*([\w\W]+?)\*\*/g, "<b>$1</b>")
+	messageHTML = messageHTML.replace(/\*([\w\W]+?)\*/g, "<em>$1</em>")
+
+	// Add links
+	messageHTML = messageHTML.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, "<a href=\"$2\">$1</a>")
+
+	document.getElementById("message").innerHTML = messageHTML;
 }
 
 function createAgents() {
@@ -85,11 +115,11 @@ function draw() {
 	const MAX_RAD = 0.75 * min(width, height) / 2;
 
 	randomSeed(seed);
-	const baseRadius = random(MAX_RAD / 2);
-	const baseDeviation = random(baseRadius / 2);
+	const baseRadius = random(1 / 6, 1 / 2) * MAX_RAD;
+	const baseDeviation = random(baseRadius * 2 / 3);
 
 	polarHexagons(6, baseRadius, baseDeviation);
-	polarHexagons(6, 10, 100);
+	polarHexagons(6, baseRadius / 5, baseRadius + baseDeviation);
 }
 
 class Agent extends c2.Point {

@@ -68,6 +68,6 @@ async function getKey(name) {
 		nameKeys[name] = keyString;
 	}
 
-	fs.writeFileSync("data/encrypted-messages.json", JSON.stringify(encryptedMessages));
+	fs.writeFileSync("data/encrypted-messages.json", JSON.stringify(encryptedMessages, null, 4));
 	fs.writeFileSync("data/keys.json", JSON.stringify(nameKeys, null, 4));
 })();
