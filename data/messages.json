@@ -1,4 +1,5 @@
 {
-	"default": "Could not find a key to decrypt your message. Contact Michael for a fix.",
-	"example": "example message"
+	"default": "Error\nCould not find a key to decrypt your message.\nContact [Michael](mailto:michaelmbrad@gmail.com) for a fix.",
+	"example": "Example message\nAn example message.\n*Note*: Basic support for a modified **Markdown** is available.\nStress test: **Bold** *Ital* **Bold *and Ital*** and an *[ital link](https://youtu.be/dQw4w9WgXcQ)*\n\nHappy coding,<fsig>",
+	"person": "Person\nNice holiday message to a person :)<hh><sig>"
 }
