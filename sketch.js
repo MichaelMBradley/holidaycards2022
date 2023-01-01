@@ -3,7 +3,7 @@
 
 // "default" key from data/keys.json
 const DEFAULT_KEY = "DQLRtWT-g5uiUsrqNMbKNIWzpJBB7862mfNgt3L-WqE";
-// 2d Array of moving points used to generate the Voronoi background
+// 2d array of moving points used to generate the Voronoi background
 const agents = Array(4);
 // Message to display
 let message;
@@ -54,9 +54,10 @@ function parseMessage() {
 	// Add line breaks (non-standard, one newline creates a break)
 	messageHTML = messageHTML.replace(/\n/g, "<br>");
 
-	// Add bold and italics
+	// Add bold, italics, and monospace
 	messageHTML = messageHTML.replace(/\*\*([\w\W]+?)\*\*/g, "<b>$1</b>")
 	messageHTML = messageHTML.replace(/\*([\w\W]+?)\*/g, "<em>$1</em>")
+	messageHTML = messageHTML.replace(/`([^`]+)`/g, "<span style='font-family: monospace'>$1</span>")
 
 	// Add links
 	messageHTML = messageHTML.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, "<a href=\"$2\">$1</a>")
@@ -122,23 +123,25 @@ function draw() {
 	//polarHexagons(0, baseRadius / 4, MAX_RAD * 1.5);
 	polarTriangles(baseRadius, -baseDeviation);
 	polarTriangles(baseRadius, baseDeviation, MAX_RAD);
-	if (baseRadius > MAX_RAD / 3) {
-		polarHexagons(MAX_RAD * random(1/2, 4/6), baseRadius * random(0.5, 1))
-		polarTriangles(MAX_RAD, random(0.25, 0.75) * baseRadius)
+	if (baseRadius > MAX_RAD / 3 && false) {
+		polarHexagons(MAX_RAD * random(1/2, 4/6), baseRadius * random(0.5, 1));
+		polarTriangles(MAX_RAD, random(0.25, 0.75) * baseRadius);
 		polarHexagons(baseRadius, MAX_RAD * 0.75);
-		polarHexagons(MAX_RAD * random(0.9, 1), random(0.5, 1) * baseRadius)
+		polarHexagons(MAX_RAD * random(0.9, 1), random(0.5, 1) * baseRadius);
 	} else {
-		polarTriangles(-baseDeviation - baseRadius, random(0.75, 1) * baseRadius, baseDeviation* random(1/3, 1/2))
+		polarTriangles(-baseDeviation - baseRadius, random(0.75, 1) * baseRadius, baseDeviation * random(1/3, 1/2));
 		for(let i = (baseRadius + baseDeviation) / MAX_RAD; i < 1; i += random(0.05, 0.15)) {
-			triangles(0, MAX_RAD * i, PI / 3, baseDeviation * 2 * (1 - i / 2), baseRadius * 2 * (1 - i / 2) * random(0.75, 1.5));
+			const height = baseRadius * 2 * (1 - i / 2) * random(0.75, 1.75);
+			triangles(0, MAX_RAD * i, PI / 3, baseDeviation * 2 * (1 - i / 2), height);
 			polarHexagons(MAX_RAD * i, baseDeviation * (1-i)* random(1, 1.5));
+			if (random() > 2 / 3) continue;
+			const r = random(1.5);
+			for (let j = 0; j < 1; j += random(0.25, 0.75)) {
+				triangles(cp6 * (1 - j) * height, MAX_RAD * i + (1 - j) * height / 2, 0, baseDeviation * 2 * (1 - i / 2) * j, height * j * r);
+				triangles(cp6 * (1 - j) * height, MAX_RAD * i + (1 - j) * height / 2, -2 * PI / 3, baseDeviation * 2 * (1 - i / 2) * j, height * j * r);
+			}
 		}
-		const branch = random(0.4, 1);
-		if (branch > 0.7) {
-			polarHexagons(MAX_RAD * branch, random(0.5, 1) * baseRadius / 2, random(0.5, 1) * baseRadius)
-		} else {
-			triangles(0, MAX_RAD * branch, PI / 3, baseDeviation, baseRadius * 3);
-		}
+		polarHexagons(MAX_RAD * random(0.4, 1), random(0.5, 1) * baseRadius / 2, random(0.5, 1) * baseRadius);
 	}
 }
 
@@ -299,5 +302,5 @@ async function getMessage(keyData) {
 		}
 	}
 
-	return "Could not decrypt a message with your key. Contact Michael for a fix.";
+	return "Error\nCould not decrypt a message with your key.\nContact [Michael](mailto:michaelmbrad@gmail.com) for a fix.";
 }
