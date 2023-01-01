@@ -1,8 +1,9 @@
 const crypto = require("crypto");
 const fs = require("fs");
 
-const existingKeys = JSON.parse(fs.readFileSync("data/keys.json", 'utf8'));
-const messages = JSON.parse(fs.readFileSync("data/messages.json", 'utf8'));
+const existingKeys = JSON.parse(fs.readFileSync("data/keys.json", "utf8"));
+const messageDir = "data/messages/"
+const messageFiles = fs.readdirSync(messageDir);
 const encryptedMessages = {};
 
 // Encryption keys associated with each name
@@ -59,7 +60,10 @@ async function getKey(name) {
 // async anonymous function lets me use top level await
 (async () => {
 	// Encrypt messages individually, using unique keys
-	for (const [name, message] of Object.entries(messages)) {
+	for (const file of messageFiles) {
+		const name = file.slice(0, -3);
+		const message = fs.readFileSync(messageDir + file, "utf8")
+
 		const key = await getKey(name);
 
 		// This k value is the only unique part of the key, the rest is constant (for this method)

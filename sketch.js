@@ -1,9 +1,10 @@
 /// Some code from https://github.com/ren-yuan/c2.js/blob/main/examples%20for%20p5.js/Voronoi.js
+"use strict";
 
 // "default" key from data/keys.json
 const DEFAULT_KEY = "DQLRtWT-g5uiUsrqNMbKNIWzpJBB7862mfNgt3L-WqE";
 // 2d Array of moving points used to generate the Voronoi background
-const agents = Array(5);
+const agents = Array(4);
 // Message to display
 let message;
 // Seed generated from message;
@@ -21,7 +22,6 @@ function setup() {
 	const key = getURLParams()["key"];
 	getMessage(key).then(decrypted => {
 		message = decrypted;
-		console.log(message);
 		parseMessage();
 		// Hash key, use it to generate seed
 		crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)).then(hashed => {
@@ -30,7 +30,6 @@ function setup() {
 				randomSeed(dv.getUint8(i));
 				seed ^= random(Number.MAX_SAFE_INTEGER);
 			}
-			console.log(seed);
 			loop();
 		})
 	});
@@ -82,7 +81,7 @@ function draw() {
 	resetMatrix();
 	applyMatrix(1, 0, 0, 1, windowWidth / 2, windowHeight / 2);
 
-	background("#006666")
+	background("#002288")
 
 	let alpha = 1;
 	const max = 2 * sqrt(width * width + height * height) / 2;
@@ -92,14 +91,15 @@ function draw() {
 	for (const layer of agents) {
 		const voronoi = new c2.Voronoi();
 		voronoi.compute(layer);
-		alpha *= 0.1;
+		alpha *= 0.2;
 		for (let region of voronoi.regions) {
 			region = rect.clip(region);
 			// If the window is resized, some null issues can crop up on the first frame
 			// This should only be encountered occasionally
 			if (region === null) return;
 			const c = region.centroid();
-			fill(255 * pow(sqrt(c.x * c.x + c.y * c.y) / max, 3), 255 * (0.2 - alpha));
+			const brightness = pow(sqrt(c.x * c.x + c.y * c.y) / max, 1.5)
+			fill(127 * brightness, 127 * brightness, 255 * brightness, 255 * (0.25 - alpha));
 			beginShape();
 			for (const vert of region.vertices) vertex(vert.x, vert.y);
 			endShape(CLOSE);
@@ -110,20 +110,39 @@ function draw() {
 		}
 	}
 
-	stroke("#0000ff77");
-	fill("#0000cc77");
+	//stroke("#0000ff99");
+	fill("#0000cc44");
 	const MAX_RAD = 0.75 * min(width, height) / 2;
 
 	randomSeed(seed);
 	const baseRadius = random(1 / 6, 1 / 2) * MAX_RAD;
 	const baseDeviation = random(baseRadius * 2 / 3);
 
-	polarHexagons(baseRadius, baseDeviation);
-	polarHexagons(baseRadius / 5, baseRadius + baseDeviation);
-	mirrorHexShape([[0, 100], [0, 150], [50, 150], [50, 100]]);
+	polarHexagons(baseDeviation, baseRadius);
+	//polarHexagons(0, baseRadius / 4, MAX_RAD * 1.5);
+	polarTriangles(baseRadius, -baseDeviation);
+	polarTriangles(baseRadius, baseDeviation, MAX_RAD);
+	if (baseRadius > MAX_RAD / 3) {
+		polarHexagons(MAX_RAD * random(1/2, 4/6), baseRadius * random(0.5, 1))
+		polarTriangles(MAX_RAD, random(0.25, 0.75) * baseRadius)
+		polarHexagons(baseRadius, MAX_RAD * 0.75);
+		polarHexagons(MAX_RAD * random(0.9, 1), random(0.5, 1) * baseRadius)
+	} else {
+		polarTriangles(-baseDeviation - baseRadius, random(0.75, 1) * baseRadius, baseDeviation* random(1/3, 1/2))
+		for(let i = (baseRadius + baseDeviation) / MAX_RAD; i < 1; i += random(0.05, 0.15)) {
+			triangles(0, MAX_RAD * i, PI / 3, baseDeviation * 2 * (1 - i / 2), baseRadius * 2 * (1 - i / 2) * random(0.75, 1.5));
+			polarHexagons(MAX_RAD * i, baseDeviation * (1-i)* random(1, 1.5));
+		}
+		const branch = random(0.4, 1);
+		if (branch > 0.7) {
+			polarHexagons(MAX_RAD * branch, random(0.5, 1) * baseRadius / 2, random(0.5, 1) * baseRadius)
+		} else {
+			triangles(0, MAX_RAD * branch, PI / 3, baseDeviation, baseRadius * 3);
+		}
+	}
 }
 
-// cos(pi/6), just so `HEXAGON_POINTS` doesn't have to recalculate it
+// cos(pi/6), just so shape points constants doesn't have to recalculate it
 const cp6 = Math.sqrt(3) / 2;
 // Points of a hexagon, normalised
 const HEXAGON_POINTS = [
@@ -135,12 +154,39 @@ const HEXAGON_POINTS = [
 	[-1/2, cp6]
 ];
 // Creates 6 hexagons about the origin
-function polarHexagons(radius, distance) {
+// If `height` is given, `radius` acts as width
+function polarHexagons(distance, radius, height) {
+	polarShape(HEXAGON_POINTS, distance, radius, height)
+}
+
+// Points of a triangle, normalised
+const TRIANGLE_POINTS = [
+	[0, 1],
+	[cp6, -1/2],
+	[-cp6, -1/2]
+]
+// Creates 6 triangles about the origin
+// If `height` is given, `radius` acts as width
+function polarTriangles(distance, radius, height) {
+	polarShape(TRIANGLE_POINTS, distance, radius, height)
+}
+
+function triangles(x, y, theta, radius, height) {
+	if (height === undefined) height = radius;
+	const scaleTri = TRIANGLE_POINTS.map(p => [radius * p[0] / 2, height * (p[1] + 0.5) / 2]);
+	const rotateTri = scaleTri.map(p => rotatePoint(p[0], p[1], theta));
+	mirrorHexShape(rotateTri.map(p => [p[0] + x, p[1] + y]));
+}
+
+// Creates 6 shapes about the origin
+// Defined by 2d array of `[[x1, y1], [x2, y2], ...]`
+function polarShape(shape, distance, radius, height) {
+	if (height === undefined) height = radius;
 	hexShape(
-		HEXAGON_POINTS.map(
+		shape.map(
 			point => [
 				point[0] * radius,
-				point[1] * radius + distance
+				point[1] * height + distance
 			]
 		)
 	);
@@ -153,6 +199,15 @@ function mirrorHexShape(points) {
 	hexShape(points.map(point => [-point[0], point[1]]));
 }
 
+// Rotates [x, y] about the origin by theta radians
+function rotatePoint(x, y, theta) {
+	// Transform point using standard 2d rotation matrix
+	return [
+		x * cos(theta) - y * sin(theta),
+		x * sin(theta) + y * cos(theta)
+	]
+}
+
 // Given a series of points `[[x1, y1], [x2, y2], ...]`
 // Draw the shape they define 6 times, separated by pi/3 rad
 function hexShape(points) {
@@ -160,9 +215,9 @@ function hexShape(points) {
 	// This still gets across what I want, and only draws each shape once
 	for (let theta = PI / 3; theta <= TWO_PI; theta += PI / 3) {
 		beginShape();
-		for (const [x, y] of points) {
-			// Transform point using standard 2d rotation matrix
-			vertex(x * cos(theta) - y * sin(theta), x * sin(theta) + y * cos(theta));
+		for (let [x, y] of points) {
+			[x, y] = rotatePoint(x, y, theta);
+			vertex(x, y);
 		}
 		endShape(CLOSE);
 	}
